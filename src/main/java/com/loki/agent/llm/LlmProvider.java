@@ -58,6 +58,42 @@ public class LlmProvider {
         }
     }
 
+    /**
+     * Streaming chat: tokens are delivered via callback as they arrive.
+     * Returns the complete LlmResponse once streaming finishes.
+     */
+    public LlmResponse chatStreaming(List<Map<String, Object>> messages,
+                                      List<Map<String, Object>> tools,
+                                      String model,
+                                      int maxTokens,
+                                      StreamingCallback callback) {
+        List<Message> springMessages = toSpringMessages(messages);
+        Prompt prompt = new Prompt(springMessages);
+
+        try {
+            StringBuilder fullContent = new StringBuilder();
+
+            chatModel.stream(prompt)
+                    .doOnNext(chunk -> {
+                        var output = chunk.getResult().getOutput();
+                        String text = output.getText();
+                        if (text != null && !text.isEmpty()) {
+                            fullContent.append(text);
+                            callback.onToken(text);
+                        }
+                    })
+                    .doOnError(e -> log.error("Streaming error", e))
+                    .blockLast();
+
+            return new LlmResponse(fullContent.toString(), List.of(), null, Map.of());
+
+        } catch (Exception e) {
+            log.error("Streaming LLM call failed", e);
+            // Fallback to non-streaming
+            return chat(messages, tools, model, maxTokens);
+        }
+    }
+
     private Map<String, Object> parseArgs(String arguments) {
         if (arguments == null || arguments.isBlank()) return Map.of();
         try {

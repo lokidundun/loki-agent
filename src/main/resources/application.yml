@@ -22,6 +22,7 @@ loki:
   agent:
     workspace: ${user.home}/.loki-agent/workspace
     max-iterations: 10
+    streaming: false
     proactive:
       enabled: false
       daily-max: 5
@@ -34,6 +35,11 @@ loki:
       bot-token: ${TELEGRAM_BOT_TOKEN:}
       bot-username: ${TELEGRAM_BOT_USERNAME:loki_agent_bot}
       allowed-users: ${TELEGRAM_ALLOWED_USERS:}
+    a2a:
+      enabled: false
+      port: 8090
+    mcp:
+      servers: []
 
 logging:
   level:

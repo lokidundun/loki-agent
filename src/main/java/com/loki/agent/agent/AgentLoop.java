@@ -4,10 +4,12 @@ import com.loki.agent.bus.InboundMessage;
 import com.loki.agent.bus.MessageBus;
 import com.loki.agent.bus.OutboundMessage;
 import com.loki.agent.channel.Channel;
+import com.loki.agent.llm.StreamingCallback;
 import com.loki.agent.proactive.ProactiveLoop;
 import com.loki.agent.tool.ToolRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -27,6 +29,9 @@ public class AgentLoop implements ApplicationRunner {
     private final PassiveTurnPipeline pipeline;
     private final ToolRegistry toolRegistry;
     private final ProactiveLoop proactiveLoop;
+
+    @Value("${loki.agent.streaming:false}")
+    private boolean streamingEnabled;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -56,13 +61,27 @@ public class AgentLoop implements ApplicationRunner {
     }
 
     private void mainLoop() {
+        // Find streaming callback from channels
+        StreamingCallback streamingCb = null;
+        if (streamingEnabled) {
+            for (Channel ch : channels) {
+                StreamingCallback cb = ch.getStreamingCallback();
+                if (cb != null) { streamingCb = cb; break; }
+            }
+        }
+
         while (running.get()) {
             InboundMessage msg = null;
             try {
                 msg = bus.consumeInbound();
                 log.debug("Received: [{}] {}", msg.sessionKey(), msg.content());
 
-                OutboundMessage reply = pipeline.run(msg);
+                OutboundMessage reply = pipeline.run(msg, streamingCb);
+
+                // If streaming, just print newline (content already streamed)
+                if (streamingCb != null) {
+                    System.out.println(); // end the streamed line
+                }
                 bus.publishOutbound(reply);
 
             } catch (InterruptedException e) {

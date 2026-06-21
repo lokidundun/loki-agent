@@ -3,6 +3,7 @@ package com.loki.agent.agent;
 import com.loki.agent.bus.InboundMessage;
 import com.loki.agent.bus.OutboundMessage;
 import com.loki.agent.event.EventBus;
+import com.loki.agent.llm.StreamingCallback;
 import com.loki.agent.memory.MemoryConsolidator;
 import com.loki.agent.memory.MemoryStore;
 import com.loki.agent.session.Session;
@@ -32,6 +33,9 @@ public class PassiveTurnPipeline {
     @Value("${spring.ai.openai.chat.model:deepseek-chat}")
     private String model;
 
+    @Value("${loki.agent.streaming:false}")
+    private boolean streamingEnabled;
+
     public PassiveTurnPipeline(SessionManager sessionManager,
                                ContextBuilder contextBuilder,
                                Reasoner reasoner,
@@ -49,6 +53,13 @@ public class PassiveTurnPipeline {
     }
 
     public OutboundMessage run(InboundMessage msg) {
+        return run(msg, null);
+    }
+
+    /**
+     * Run passive turn with optional streaming callback.
+     */
+    public OutboundMessage run(InboundMessage msg, StreamingCallback callback) {
         // Emit message.received
         eventBus.emit("message.received", Map.of(
                 "channel", msg.channel(),
@@ -65,13 +76,11 @@ public class PassiveTurnPipeline {
         log.debug("Phase 2: BeforeReasoning — building context");
         ContextBuilder.ContextResult ctx = contextBuilder.build(session, msg, memoryBlock);
 
-        // Phase 3-4: Reasoning — ReAct loop
-        log.debug("Phase 3-4: Reasoning — running ReAct loop");
-        ReasonerResult result = reasoner.run(
-                ctx.messages(),
-                toolRegistry.getSchemas(),
-                model
-        );
+        // Phase 3-4: Reasoning — ReAct loop (with optional streaming)
+        log.debug("Phase 3-4: Reasoning — running ReAct loop (streaming={})", callback != null);
+        ReasonerResult result = callback != null
+                ? reasoner.run(ctx.messages(), toolRegistry.getSchemas(), model, callback)
+                : reasoner.run(ctx.messages(), toolRegistry.getSchemas(), model);
 
         // Phase 5: AfterReasoning — persist conversation
         log.debug("Phase 5: AfterReasoning — persisting messages");

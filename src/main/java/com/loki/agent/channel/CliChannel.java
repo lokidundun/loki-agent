@@ -3,6 +3,7 @@ package com.loki.agent.channel;
 import com.loki.agent.bus.InboundMessage;
 import com.loki.agent.bus.MessageBus;
 import com.loki.agent.bus.OutboundMessage;
+import com.loki.agent.llm.StreamingCallback;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -37,6 +38,11 @@ public class CliChannel implements Channel {
     public void stop() {
         running.set(false);
         executor.shutdownNow();
+    }
+
+    @Override
+    public StreamingCallback getStreamingCallback() {
+        return token -> System.out.print(token);
     }
 
     private void inputLoop() {
