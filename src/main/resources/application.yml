@@ -1,0 +1,21 @@
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:your-api-key-here}
+      base-url: https://api.deepseek.com
+      chat:
+        model: deepseek-chat
+        options:
+          max-tokens: 4096
+
+server:
+  port: 0
+
+loki:
+  agent:
+    workspace: ${user.home}/.loki-agent/workspace
+    max-iterations: 10
+
+logging:
+  level:
+    com.loki.agent: DEBUG
