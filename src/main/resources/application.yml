@@ -26,6 +26,9 @@ loki:
       enabled: false
       daily-max: 5
       default-session: cli:console
+    memory:
+      consolidate-every: 5
+      pending-threshold: 10
 
 logging:
   level:

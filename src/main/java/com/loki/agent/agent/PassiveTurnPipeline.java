@@ -2,6 +2,7 @@ package com.loki.agent.agent;
 
 import com.loki.agent.bus.InboundMessage;
 import com.loki.agent.bus.OutboundMessage;
+import com.loki.agent.memory.MemoryConsolidator;
 import com.loki.agent.memory.MemoryStore;
 import com.loki.agent.session.Session;
 import com.loki.agent.session.SessionManager;
@@ -24,6 +25,7 @@ public class PassiveTurnPipeline {
     private final Reasoner reasoner;
     private final ToolRegistry toolRegistry;
     private final MemoryStore memoryStore;
+    private final MemoryConsolidator memoryConsolidator;
 
     @Value("${spring.ai.openai.chat.model:deepseek-chat}")
     private String model;
@@ -32,12 +34,14 @@ public class PassiveTurnPipeline {
                                ContextBuilder contextBuilder,
                                Reasoner reasoner,
                                ToolRegistry toolRegistry,
-                               MemoryStore memoryStore) {
+                               MemoryStore memoryStore,
+                               MemoryConsolidator memoryConsolidator) {
         this.sessionManager = sessionManager;
         this.contextBuilder = contextBuilder;
         this.reasoner = reasoner;
         this.toolRegistry = toolRegistry;
         this.memoryStore = memoryStore;
+        this.memoryConsolidator = memoryConsolidator;
     }
 
     public OutboundMessage run(InboundMessage msg) {
@@ -68,6 +72,13 @@ public class PassiveTurnPipeline {
         // Record in memory journal
         memoryStore.appendJournal("User: " + truncate(msg.content(), 200));
         memoryStore.appendJournal("Agent: " + truncate(result.reply(), 200));
+
+        // Phase 5b: Memory consolidation (async-safe, has internal guards)
+        try {
+            memoryConsolidator.consolidate(session);
+        } catch (Exception e) {
+            log.warn("Memory consolidation failed: {}", e.getMessage());
+        }
 
         // Phase 6: AfterTurn — build outbound message
         log.debug("Phase 6: AfterTurn — reply ready ({} chars, tools: {})",
