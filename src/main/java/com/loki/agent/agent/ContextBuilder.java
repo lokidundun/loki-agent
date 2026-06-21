@@ -1,7 +1,9 @@
 package com.loki.agent.agent;
 
 import com.loki.agent.bus.InboundMessage;
+import com.loki.agent.memory.MemoryChunk;
 import com.loki.agent.memory.MemoryStore;
+import com.loki.agent.memory.VectorMemoryStore;
 import com.loki.agent.prompt.PromptTemplates;
 import com.loki.agent.prompt.SystemPromptBuilder;
 import com.loki.agent.session.Session;
@@ -24,12 +26,14 @@ public class ContextBuilder {
     private final SystemPromptBuilder systemPromptBuilder;
     private final MemoryStore memoryStore;
     private final SkillLoader skillLoader;
+    private final VectorMemoryStore vectorMemoryStore;
 
     public ContextBuilder(SystemPromptBuilder systemPromptBuilder, MemoryStore memoryStore,
-                           SkillLoader skillLoader) {
+                           SkillLoader skillLoader, VectorMemoryStore vectorMemoryStore) {
         this.systemPromptBuilder = systemPromptBuilder;
         this.memoryStore = memoryStore;
         this.skillLoader = skillLoader;
+        this.vectorMemoryStore = vectorMemoryStore;
     }
 
     public record ContextResult(String systemPrompt, List<Map<String, Object>> messages) {}
@@ -61,8 +65,10 @@ public class ContextBuilder {
             ));
         }
 
-        // [N+1] context frame (memory + recent context reminder)
-        String contextFrame = buildContextFrame(memoryBlock, recentContext, skillsInfo);
+        // [N+1] context frame (memory + vector search + recent context reminder)
+        String vectorResults = vectorMemoryStore.formatResults(
+                vectorMemoryStore.search(msg.content(), 5));
+        String contextFrame = buildContextFrame(memoryBlock, vectorResults, recentContext, skillsInfo);
         if (contextFrame != null) {
             messages.add(Map.of("role", "user", "content", contextFrame));
         }
@@ -74,8 +80,8 @@ public class ContextBuilder {
         return new ContextResult(systemPrompt, messages);
     }
 
-    private String buildContextFrame(String memoryBlock, String recentContext,
-                                     String skillsInfo) {
+    private String buildContextFrame(String memoryBlock, String vectorResults,
+                                     String recentContext, String skillsInfo) {
         StringBuilder sb = new StringBuilder();
         sb.append(PromptTemplates.CONTEXT_FRAME_PREFIX);
 
@@ -83,6 +89,11 @@ public class ContextBuilder {
 
         if (memoryBlock != null && !memoryBlock.isBlank()) {
             sb.append("\n### Long-term Memory\n").append(memoryBlock);
+            hasContent = true;
+        }
+
+        if (vectorResults != null && !vectorResults.isBlank()) {
+            sb.append("\n### Relevant Memories\n").append(vectorResults);
             hasContent = true;
         }
 

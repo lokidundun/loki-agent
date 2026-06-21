@@ -20,6 +20,7 @@ public class MemoryConsolidator {
     private final MemoryStore memoryStore;
     private final LlmProvider llmProvider;
     private final EventBus eventBus;
+    private final VectorMemoryStore vectorMemoryStore;
 
     @Value("${loki.agent.memory.consolidate-every:5}")
     private int consolidateEvery;
@@ -27,10 +28,12 @@ public class MemoryConsolidator {
     @Value("${loki.agent.memory.pending-threshold:10}")
     private int pendingThreshold;
 
-    public MemoryConsolidator(MemoryStore memoryStore, LlmProvider llmProvider, EventBus eventBus) {
+    public MemoryConsolidator(MemoryStore memoryStore, LlmProvider llmProvider,
+                               EventBus eventBus, VectorMemoryStore vectorMemoryStore) {
         this.memoryStore = memoryStore;
         this.llmProvider = llmProvider;
         this.eventBus = eventBus;
+        this.vectorMemoryStore = vectorMemoryStore;
     }
 
     public void consolidate(Session session) {
@@ -157,6 +160,10 @@ public class MemoryConsolidator {
 
             // Commit: delete snapshot
             memoryStore.commitPendingSnapshot();
+
+            // Re-index vector memory
+            vectorMemoryStore.reindex(memoryStore);
+            log.debug("Vector memory reindexed after merge");
 
         } catch (Exception e) {
             log.error("Merge failed, rolling back", e);

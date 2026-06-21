@@ -23,6 +23,10 @@ public class MemoryStore {
         ensureDir(memoryDir.resolve("journal"));
     }
 
+    public Path memoryDir() {
+        return memoryDir;
+    }
+
     // ===== Layer 1: MEMORY.md (long-term) =====
 
     public String readLongTerm() {
