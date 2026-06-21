@@ -4,6 +4,7 @@ import com.loki.agent.bus.InboundMessage;
 import com.loki.agent.bus.MessageBus;
 import com.loki.agent.bus.OutboundMessage;
 import com.loki.agent.channel.CliChannel;
+import com.loki.agent.proactive.ProactiveLoop;
 import com.loki.agent.tool.ToolRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,16 +25,19 @@ public class AgentLoop implements ApplicationRunner {
     private final CliChannel cliChannel;
     private final PassiveTurnPipeline pipeline;
     private final ToolRegistry toolRegistry;
+    private final ProactiveLoop proactiveLoop;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public AgentLoop(MessageBus bus, CliChannel cliChannel,
-                     PassiveTurnPipeline pipeline, ToolRegistry toolRegistry) {
+                     PassiveTurnPipeline pipeline, ToolRegistry toolRegistry,
+                     ProactiveLoop proactiveLoop) {
         this.bus = bus;
         this.cliChannel = cliChannel;
         this.pipeline = pipeline;
         this.toolRegistry = toolRegistry;
+        this.proactiveLoop = proactiveLoop;
     }
 
     @Override
@@ -41,7 +45,8 @@ public class AgentLoop implements ApplicationRunner {
         cliChannel.start(bus);
         running.set(true);
         executor.submit(this::mainLoop);
-        log.info("AgentLoop started, tools={}", toolRegistry.size());
+        proactiveLoop.start();
+        log.info("AgentLoop started, tools={}, proactive={}", toolRegistry.size(), true);
     }
 
     private void mainLoop() {

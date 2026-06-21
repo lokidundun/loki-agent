@@ -22,6 +22,10 @@ loki:
   agent:
     workspace: ${user.home}/.loki-agent/workspace
     max-iterations: 10
+    proactive:
+      enabled: false
+      daily-max: 5
+      default-session: cli:console
 
 logging:
   level:
