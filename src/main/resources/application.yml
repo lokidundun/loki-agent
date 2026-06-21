@@ -8,6 +8,13 @@ spring:
         options:
           max-tokens: 4096
 
+  datasource:
+    url: jdbc:sqlite:${user.home}/.loki-agent/loki-agent.db
+    driver-class-name: org.sqlite.JDBC
+  jdbc:
+    template:
+      class-loader: org.sqlite.JDBC
+
 server:
   port: 0
 
