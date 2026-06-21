@@ -5,6 +5,7 @@ import com.loki.agent.memory.MemoryStore;
 import com.loki.agent.prompt.PromptTemplates;
 import com.loki.agent.prompt.SystemPromptBuilder;
 import com.loki.agent.session.Session;
+import com.loki.agent.skill.SkillLoader;
 import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
@@ -22,21 +23,25 @@ public class ContextBuilder {
 
     private final SystemPromptBuilder systemPromptBuilder;
     private final MemoryStore memoryStore;
+    private final SkillLoader skillLoader;
 
-    public ContextBuilder(SystemPromptBuilder systemPromptBuilder, MemoryStore memoryStore) {
+    public ContextBuilder(SystemPromptBuilder systemPromptBuilder, MemoryStore memoryStore,
+                           SkillLoader skillLoader) {
         this.systemPromptBuilder = systemPromptBuilder;
         this.memoryStore = memoryStore;
+        this.skillLoader = skillLoader;
     }
 
     public record ContextResult(String systemPrompt, List<Map<String, Object>> messages) {}
 
     public ContextResult build(Session session, InboundMessage msg,
-                               String memoryBlock, String skillsInfo) {
+                               String memoryBlock) {
         List<Map<String, Object>> messages = new ArrayList<>();
 
         // Build system prompt
         String selfModel = memoryStore.readSelf();
         String recentContext = memoryStore.readRecentContext();
+        String skillsInfo = skillLoader.getSkillsCatalog();
         String timestamp = TS_FMT.format(msg.timestamp());
         String sessionHeader = PromptTemplates.buildSessionHeader(
                 msg.channel(), msg.chatId(), timestamp);

@@ -29,7 +29,13 @@ public class SystemPromptBuilder {
             sb.append(memoryContext);
         }
 
-        // 5. Session context
+        // 5. Skills catalog (if present)
+        if (skillsCatalog != null && !skillsCatalog.isBlank()) {
+            sb.append("\n");
+            sb.append(skillsCatalog);
+        }
+
+        // 6. Session context
         if (sessionHeader != null && !sessionHeader.isBlank()) {
             sb.append("\n");
             sb.append(sessionHeader);

@@ -29,6 +29,11 @@ loki:
     memory:
       consolidate-every: 5
       pending-threshold: 10
+    telegram:
+      enabled: false
+      bot-token: ${TELEGRAM_BOT_TOKEN:}
+      bot-username: ${TELEGRAM_BOT_USERNAME:loki_agent_bot}
+      allowed-users: ${TELEGRAM_ALLOWED_USERS:}
 
 logging:
   level:

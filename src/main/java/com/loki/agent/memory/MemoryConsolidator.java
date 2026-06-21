@@ -1,5 +1,6 @@
 package com.loki.agent.memory;
 
+import com.loki.agent.event.EventBus;
 import com.loki.agent.llm.LlmProvider;
 import com.loki.agent.session.Session;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ public class MemoryConsolidator {
 
     private final MemoryStore memoryStore;
     private final LlmProvider llmProvider;
+    private final EventBus eventBus;
 
     @Value("${loki.agent.memory.consolidate-every:5}")
     private int consolidateEvery;
@@ -25,9 +27,10 @@ public class MemoryConsolidator {
     @Value("${loki.agent.memory.pending-threshold:10}")
     private int pendingThreshold;
 
-    public MemoryConsolidator(MemoryStore memoryStore, LlmProvider llmProvider) {
+    public MemoryConsolidator(MemoryStore memoryStore, LlmProvider llmProvider, EventBus eventBus) {
         this.memoryStore = memoryStore;
         this.llmProvider = llmProvider;
+        this.eventBus = eventBus;
     }
 
     public void consolidate(Session session) {
@@ -144,6 +147,12 @@ public class MemoryConsolidator {
 
                 log.info("MEMORY.md updated, {} pending facts merged",
                         pendingContent.split("\n").length);
+
+                // Emit event
+                eventBus.emit("memory.merged", Map.of(
+                        "facts_merged", pendingContent.split("\n").length,
+                        "memory_size", merged.strip().length()
+                ));
             }
 
             // Commit: delete snapshot

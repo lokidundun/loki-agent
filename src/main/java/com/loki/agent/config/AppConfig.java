@@ -1,8 +1,14 @@
 package com.loki.agent.config;
 
+import com.loki.agent.event.EventBus;
+import com.loki.agent.llm.LlmProvider;
+import com.loki.agent.memory.MemoryStore;
+import com.loki.agent.tool.ToolHook;
 import com.loki.agent.tool.ToolRegistry;
+import com.loki.agent.tool.SpiToolLoader;
 import com.loki.agent.tool.tools.EditFileTool;
 import com.loki.agent.tool.tools.ListDirTool;
+import com.loki.agent.tool.tools.MemoryTool;
 import com.loki.agent.tool.tools.ReadFileTool;
 import com.loki.agent.tool.tools.WriteFileTool;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -12,6 +18,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
 import java.nio.file.Path;
+import java.util.List;
 
 @Configuration
 @EnableConfigurationProperties(AgentConfig.class)
@@ -35,12 +42,25 @@ public class AppConfig {
     }
 
     @Bean
-    public ToolRegistry toolRegistry(Path workspace) {
+    public ToolRegistry toolRegistry(Path workspace, MemoryStore memoryStore,
+                                      LlmProvider llmProvider, SpiToolLoader spiToolLoader,
+                                      List<ToolHook> hooks, EventBus eventBus) {
         ToolRegistry registry = new ToolRegistry();
+
+        // Built-in tools
         registry.register(new ReadFileTool(workspace));
         registry.register(new WriteFileTool(workspace));
         registry.register(new EditFileTool(workspace));
         registry.register(new ListDirTool(workspace));
+        registry.register(new MemoryTool(memoryStore, llmProvider));
+
+        // SPI-loaded tools
+        spiToolLoader.loadAll(workspace).forEach(registry::register);
+
+        // Hooks and EventBus
+        registry.setHooks(hooks);
+        registry.setEventBus(eventBus);
+
         return registry;
     }
 }

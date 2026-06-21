@@ -22,6 +22,7 @@ public final class PromptTemplates {
             4. **Honest uncertainty**: If you don't know something, say so. Don't fabricate.
             5. **Respect context**: The user may come and go. Treat each conversation as a continuation, not a fresh start.
             6. **Language matching**: Always reply in the same language the user writes in.
+            7. **Memory tool**: Use the `memory` tool to memorize important facts about the user, recall stored memories, or forget outdated information. Prefer memorizing facts explicitly rather than relying only on automatic consolidation.
             """;
 
     public static final String SESSION_HEADER = """

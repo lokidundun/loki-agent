@@ -2,6 +2,7 @@ package com.loki.agent.agent;
 
 import com.loki.agent.bus.InboundMessage;
 import com.loki.agent.bus.OutboundMessage;
+import com.loki.agent.event.EventBus;
 import com.loki.agent.memory.MemoryConsolidator;
 import com.loki.agent.memory.MemoryStore;
 import com.loki.agent.session.Session;
@@ -26,6 +27,7 @@ public class PassiveTurnPipeline {
     private final ToolRegistry toolRegistry;
     private final MemoryStore memoryStore;
     private final MemoryConsolidator memoryConsolidator;
+    private final EventBus eventBus;
 
     @Value("${spring.ai.openai.chat.model:deepseek-chat}")
     private String model;
@@ -35,16 +37,25 @@ public class PassiveTurnPipeline {
                                Reasoner reasoner,
                                ToolRegistry toolRegistry,
                                MemoryStore memoryStore,
-                               MemoryConsolidator memoryConsolidator) {
+                               MemoryConsolidator memoryConsolidator,
+                               EventBus eventBus) {
         this.sessionManager = sessionManager;
         this.contextBuilder = contextBuilder;
         this.reasoner = reasoner;
         this.toolRegistry = toolRegistry;
         this.memoryStore = memoryStore;
         this.memoryConsolidator = memoryConsolidator;
+        this.eventBus = eventBus;
     }
 
     public OutboundMessage run(InboundMessage msg) {
+        // Emit message.received
+        eventBus.emit("message.received", Map.of(
+                "channel", msg.channel(),
+                "sender", msg.sender(),
+                "content_length", msg.content().length()
+        ));
+
         // Phase 1: BeforeTurn — get session, prepare memory
         log.debug("Phase 1: BeforeTurn — session={}", msg.sessionKey());
         Session session = sessionManager.getOrCreate(msg.sessionKey());
@@ -52,8 +63,7 @@ public class PassiveTurnPipeline {
 
         // Phase 2: BeforeReasoning — build full message array
         log.debug("Phase 2: BeforeReasoning — building context");
-        ContextBuilder.ContextResult ctx = contextBuilder.build(
-                session, msg, memoryBlock, null);
+        ContextBuilder.ContextResult ctx = contextBuilder.build(session, msg, memoryBlock);
 
         // Phase 3-4: Reasoning — ReAct loop
         log.debug("Phase 3-4: Reasoning — running ReAct loop");
@@ -83,6 +93,14 @@ public class PassiveTurnPipeline {
         // Phase 6: AfterTurn — build outbound message
         log.debug("Phase 6: AfterTurn — reply ready ({} chars, tools: {})",
                 result.reply().length(), result.toolsUsed());
+
+        // Emit message.replied
+        eventBus.emit("message.replied", Map.of(
+                "channel", msg.channel(),
+                "reply_length", result.reply().length(),
+                "tools_used", result.toolsUsed()
+        ));
+
         return new OutboundMessage(msg.channel(), msg.chatId(), result.reply(), null);
     }
 
